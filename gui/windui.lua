@@ -5009,16 +5009,33 @@ d.Heartbeat
 						end
 					end,
 				},
+				Button = {
+					Save = function(af)
+						return {
+							__type = af.__type,
+							keybind = af.Keybind and af.Keybind.Key or "",
+						}
+					end,
+					Load = function(af, ag)
+						if af and af.SetKeybind then
+							af:SetKeybind(ag.keybind)
+						end
+					end,
+				},
 				Toggle = {
 					Save = function(af)
 						return {
 							__type = af.__type,
 							value = af.Value,
+							keybind = af.Keybind and af.Keybind.Key or "",
 						}
 					end,
 					Load = function(af, ag)
 						if af and af.Set then
 							af:Set(ag.value)
+						end
+						if af and af.SetKeybind and ag.keybind ~= nil then
+							af:SetKeybind(ag.keybind)
 						end
 					end,
 				},
@@ -6441,97 +6458,296 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 	function a.E()
 		local aa = a.load("d")
 		local ab = aa.New
+		local ac = a.load("w").New
+		local ad = game:GetService("UserInputService")
 
-		local ac = {}
+		local ae = {}
 
-		function ac.New(ad, ae)
-			local af = {
+		function ae.New(af, ag)
+			local function NormalizeKeyCode(ah)
+				if typeof(ah) == "EnumItem" then
+					return ah.Name
+				elseif type(ah) == "string" then
+					return ah
+				end
+				return ""
+			end
+
+			local function CreateKeybind(parent, initialKey, canUse, callback, onSizeChanged)
+				local key = NormalizeKeyCode(initialKey)
+				local picking = false
+				local pickInputBegan
+				local pickInputEnded
+
+				local kb = {
+					Key = key,
+					Value = key,
+					Picking = false,
+					UIElement = nil,
+				}
+
+				local pill = ac(key, nil, parent, nil, af.Window.NewElements and 12 or 10)
+				kb.UIElement = pill
+				pill.Interactable = true
+				pill.AnchorPoint = Vector2.new(1, 0.5)
+				pill.Position = UDim2.new(1, 0, 0.5, 0)
+				pill.ZIndex = 10
+
+				local function updateSize()
+					local width = 24 + pill.Frame.Frame.TextLabel.TextBounds.X
+					pill.Size = UDim2.new(0, width, 0, 42)
+					if onSizeChanged then
+						onSizeChanged(width)
+					end
+				end
+
+				local function disconnectPicker()
+					if pickInputBegan then
+						pickInputBegan:Disconnect()
+						pickInputBegan = nil
+					end
+					if pickInputEnded then
+						pickInputEnded:Disconnect()
+						pickInputEnded = nil
+					end
+					picking = false
+					kb.Picking = false
+				end
+
+				function kb.Set(self, value)
+					key = NormalizeKeyCode(value)
+					self.Key = key
+					self.Value = key
+					self.Picking = false
+					pill.Frame.Frame.TextLabel.Text = key
+					updateSize()
+					return self
+				end
+
+				function kb.Get(self)
+					return self.Key
+				end
+
+				local clickConnection = pill.MouseButton1Click:Connect(function()
+					if not canUse() or picking then
+						return
+					end
+
+					picking = true
+					kb.Picking = true
+					pill.Frame.Frame.TextLabel.Text = "..."
+					updateSize()
+
+					pickInputBegan = ad.InputBegan:Connect(function(input)
+						if input.UserInputType ~= Enum.UserInputType.Keyboard
+							and input.UserInputType ~= Enum.UserInputType.MouseButton1
+							and input.UserInputType ~= Enum.UserInputType.MouseButton2
+						then
+							return
+						end
+
+						local newKey
+						if input.UserInputType == Enum.UserInputType.Keyboard then
+							if input.KeyCode == Enum.KeyCode.Escape then
+								pill.Frame.Frame.TextLabel.Text = key
+								updateSize()
+								disconnectPicker()
+								return
+							end
+							newKey = input.KeyCode.Name
+					elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+							newKey = "MouseLeft"
+					elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+							newKey = "MouseRight"
+						end
+
+						if not newKey then
+							return
+						end
+
+						if pickInputEnded then
+							pickInputEnded:Disconnect()
+						end
+						pickInputEnded = ad.InputEnded:Connect(function(released)
+							local matches =
+								(released.UserInputType == Enum.UserInputType.Keyboard and released.KeyCode.Name == newKey)
+								or (newKey == "MouseLeft" and released.UserInputType == Enum.UserInputType.MouseButton1)
+								or (newKey == "MouseRight" and released.UserInputType == Enum.UserInputType.MouseButton2)
+
+							if not matches then
+								return
+							end
+
+							kb:Set(newKey)
+						disconnectPicker()
+						end)
+					end)
+				end)
+
+				local inputConnection = ad.InputBegan:Connect(function(input)
+					if picking or not canUse() or ad:GetFocusedTextBox() then
+						return
+					end
+
+					local matched =
+						(input.UserInputType == Enum.UserInputType.Keyboard and key ~= "" and input.KeyCode.Name == key)
+						or (input.UserInputType == Enum.UserInputType.MouseButton1 and key == "MouseLeft")
+						or (input.UserInputType == Enum.UserInputType.MouseButton2 and key == "MouseRight")
+
+					if matched then
+						aa.SafeCallback(callback, key)
+					end
+				end)
+
+				local sizeConnection = pill.Frame.Frame.TextLabel:GetPropertyChangedSignal("TextBounds"):Connect(updateSize)
+				updateSize()
+
+				function kb.Destroy(self)
+					disconnectPicker()
+					clickConnection:Disconnect()
+					inputConnection:Disconnect()
+					sizeConnection:Disconnect()
+					if pill then
+						pill:Destroy()
+					end
+			end
+
+				return kb
+			end
+
+			local keybindConfig = type(ag.Keybind) == "table" and ag.Keybind or {}
+			local afElement = {
 				__type = "Button",
-				Title = ae.Title or "Button",
-				Desc = ae.Desc or nil,
-				Icon = ae.Icon or "mouse-pointer-click",
-				IconThemed = ae.IconThemed or false,
-				IconColor = ae.IconColor or nil,
-				Color = ae.Color,
-				Justify = ae.Justify or "Between",
-				IconAlign = ae.IconAlign or "Right",
-				Locked = ae.Locked or false,
-				LockedTitle = ae.LockedTitle,
-				Callback = ae.Callback or function() end,
+				Title = ag.Title or "Button",
+				Desc = ag.Desc or nil,
+				Icon = ag.Icon or "mouse-pointer-click",
+				IconThemed = ag.IconThemed or false,
+				IconColor = ag.IconColor or nil,
+				Color = ag.Color,
+				Justify = ag.Justify or "Between",
+				IconAlign = ag.IconAlign or "Right",
+				Locked = ag.Locked or false,
+				LockedTitle = ag.LockedTitle,
+				Callback = ag.Callback or function() end,
+				Keybind = {
+					Key = NormalizeKeyCode(keybindConfig.Key),
+				},
 				UIElements = {},
 			}
 
-			local ag = true
+			local enabled = true
 
-			af.ButtonFrame = a.load("C")({
-				Title = af.Title,
-				Desc = af.Desc,
-				Parent = ae.Parent,
+			afElement.ButtonFrame = a.load("C")({
+				Title = afElement.Title,
+				Desc = afElement.Desc,
+				Parent = ag.Parent,
 
-				Window = ae.Window,
-				Color = af.Color,
-				Justify = af.Justify,
+				Window = ag.Window,
+				Color = afElement.Color,
+				Justify = afElement.Justify,
 				TextOffset = 20,
 				Hover = true,
 				Scalable = true,
-				Tab = ae.Tab,
-				Index = ae.Index,
-				ElementTable = af,
-				ParentConfig = ae,
-				Size = ae.Size,
-				Tags = ae.Tags,
+				Tab = ag.Tab,
+				Index = ag.Index,
+				ElementTable = afElement,
+				ParentConfig = ag,
+				Size = ag.Size,
+				Tags = ag.Tags,
 			})
 
-			af.UIElements.ButtonIcon = aa.Image(
-				af.Icon,
-				af.Icon,
+			afElement.UIElements.ButtonIcon = aa.Image(
+				afElement.Icon,
+				afElement.Icon,
 				0,
-				ae.Window.Folder,
+				ag.Window.Folder,
 				"Button",
-				not (af.Color or af.IconColor) and true or nil,
-				af.IconThemed
+				not (afElement.Color or afElement.IconColor) and true or nil,
+				afElement.IconThemed
 			)
 
-			if af.IconColor then
-				af.UIElements.ButtonIcon.ImageLabel.ImageColor3 = af.IconColor
+			if afElement.IconColor then
+				afElement.UIElements.ButtonIcon.ImageLabel.ImageColor3 = afElement.IconColor
 			end
 
-			af.UIElements.ButtonIcon.Size = UDim2.new(0, 20, 0, 20)
-			af.UIElements.ButtonIcon.Parent = af.Justify == "Between" and af.ButtonFrame.UIElements.Main
-				or af.ButtonFrame.UIElements.Container.TitleFrame
-			af.UIElements.ButtonIcon.LayoutOrder = af.IconAlign == "Left" and -99999 or 99999
-			af.UIElements.ButtonIcon.AnchorPoint = Vector2.new(1, 0.5)
-			af.UIElements.ButtonIcon.Position = UDim2.new(1, 0, 0.5, 0)
+			afElement.UIElements.ButtonIcon.Size = UDim2.new(0, 20, 0, 20)
+			afElement.UIElements.ButtonIcon.Parent = afElement.Justify == "Between" and afElement.ButtonFrame.UIElements.Main
+				or afElement.ButtonFrame.UIElements.Container.TitleFrame
+			afElement.UIElements.ButtonIcon.LayoutOrder = afElement.IconAlign == "Left" and -99999 or 99999
+			afElement.UIElements.ButtonIcon.AnchorPoint = Vector2.new(1, 0.5)
+			afElement.UIElements.ButtonIcon.Position = UDim2.new(1, 0, 0.5, 0)
 
-			af.ButtonFrame:Colorize(af.UIElements.ButtonIcon.ImageLabel, "ImageColor3")
+			afElement.ButtonFrame:Colorize(afElement.UIElements.ButtonIcon.ImageLabel, "ImageColor3")
 
-			function af.Lock(ah)
-				af.Locked = true
-				ag = false
-				return af.ButtonFrame:Lock(af.LockedTitle)
-			end
-			function af.Unlock(ah)
-				af.Locked = false
-				ag = true
-				return af.ButtonFrame:Unlock()
+			local function updateKeybindLayout(width)
+				local titleFrame = afElement.ButtonFrame.UIElements.Container.TitleFrame
+				titleFrame.Size = UDim2.new(1, -(20 + width + 8), titleFrame.Size.Y.Scale, titleFrame.Size.Y.Offset)
+
+				if afElement.Justify == "Between" and afElement.IconAlign ~= "Left" then
+					afElement.UIElements.ButtonIcon.Position = UDim2.new(1, -(width + 8), 0.5, 0)
+				end
 			end
 
-			if af.Locked then
-				af:Lock()
+			afElement.KeybindObject = CreateKeybind(
+				afElement.ButtonFrame.UIElements.Main,
+				afElement.Keybind.Key,
+				function()
+					return enabled
+				end,
+				function()
+					if enabled then
+						task.spawn(function()
+							aa.SafeCallback(afElement.Callback)
+						end)
+					end
+				end,
+				updateKeybindLayout
+			)
+
+			afElement.UIElements.Keybind = afElement.KeybindObject.UIElement
+
+			function afElement.Lock(ah)
+				afElement.Locked = true
+				enabled = false
+				return afElement.ButtonFrame:Lock(afElement.LockedTitle)
+			end
+			function afElement.Unlock(ah)
+				afElement.Locked = false
+				enabled = true
+				return afElement.ButtonFrame:Unlock()
+			end
+			function afElement.SetKeybind(ah, value)
+				afElement.Keybind.Key = NormalizeKeyCode(value)
+				afElement.KeybindObject:Set(afElement.Keybind.Key)
+				return afElement
+			end
+			function afElement.GetKeybind(ah)
+				return afElement.Keybind.Key
+			end
+			afElement.DestroyKeybind = function()
+				if afElement.KeybindObject then
+					afElement.KeybindObject:Destroy()
+					afElement.KeybindObject = nil
+				end
 			end
 
-			aa.AddSignal(af.ButtonFrame.UIElements.Main.MouseButton1Click, function()
-				if ag then
+			if afElement.Locked then
+				afElement:Lock()
+			end
+
+			aa.AddSignal(afElement.ButtonFrame.UIElements.Main.MouseButton1Click, function()
+				if enabled then
 					task.spawn(function()
-						aa.SafeCallback(af.Callback)
+						aa.SafeCallback(afElement.Callback)
 					end)
 				end
 			end)
-			return af.__type, af
+			return afElement.__type, afElement
 		end
 
-		return ac
+		return ae
 	end
+
 	function a.F()
 		local aa = {}
 
@@ -7008,122 +7224,318 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 
 		local ad = a.load("F").New
 		local ae = a.load("G").New
+		local af = game:GetService("UserInputService")
+		local ag = a.load("w").New
 
-		local af = {}
+		local ah = {}
 
-		function af.New(ag, ah)
-			local ai = {
+		function ah.New(ai, aj)
+			local function NormalizeKeyCode(ak)
+				if typeof(ak) == "EnumItem" then
+					return ak.Name
+				elseif type(ak) == "string" then
+					return ak
+				end
+				return ""
+			end
+
+			local function CreateKeybind(parent, initialKey, canUse, callback, onSizeChanged)
+				local key = NormalizeKeyCode(initialKey)
+				local picking = false
+				local pickInputBegan
+				local pickInputEnded
+
+				local kb = {
+					Key = key,
+					Value = key,
+					Picking = false,
+					UIElement = nil,
+				}
+
+				local pill = ag(key, nil, parent, nil, aj.Window.NewElements and 12 or 10)
+				kb.UIElement = pill
+				pill.Interactable = true
+				pill.AnchorPoint = Vector2.new(1, 0.5)
+				pill.Position = UDim2.new(1, 0, 0.5, 0)
+				pill.ZIndex = 10
+
+				local function updateSize()
+					local width = 24 + pill.Frame.Frame.TextLabel.TextBounds.X
+					pill.Size = UDim2.new(0, width, 0, 42)
+					if onSizeChanged then
+						onSizeChanged(width)
+					end
+				end
+
+				local function disconnectPicker()
+					if pickInputBegan then
+						pickInputBegan:Disconnect()
+						pickInputBegan = nil
+					end
+					if pickInputEnded then
+						pickInputEnded:Disconnect()
+						pickInputEnded = nil
+					end
+					picking = false
+					kb.Picking = false
+				end
+
+				function kb.Set(self, value)
+					key = NormalizeKeyCode(value)
+					self.Key = key
+					self.Value = key
+					self.Picking = false
+					pill.Frame.Frame.TextLabel.Text = key
+					updateSize()
+					return self
+				end
+
+				function kb.Get(self)
+					return self.Key
+				end
+
+				local clickConnection = pill.MouseButton1Click:Connect(function()
+					if not canUse() or picking then
+						return
+					end
+
+					picking = true
+					kb.Picking = true
+					pill.Frame.Frame.TextLabel.Text = "..."
+					updateSize()
+
+					pickInputBegan = af.InputBegan:Connect(function(input)
+						if input.UserInputType ~= Enum.UserInputType.Keyboard
+							and input.UserInputType ~= Enum.UserInputType.MouseButton1
+							and input.UserInputType ~= Enum.UserInputType.MouseButton2
+						then
+							return
+						end
+
+						local newKey
+						if input.UserInputType == Enum.UserInputType.Keyboard then
+							if input.KeyCode == Enum.KeyCode.Escape then
+								pill.Frame.Frame.TextLabel.Text = key
+								updateSize()
+								disconnectPicker()
+								return
+							end
+							newKey = input.KeyCode.Name
+					elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+							newKey = "MouseLeft"
+					elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+							newKey = "MouseRight"
+						end
+
+						if not newKey then
+							return
+						end
+
+						if pickInputEnded then
+							pickInputEnded:Disconnect()
+						end
+						pickInputEnded = af.InputEnded:Connect(function(released)
+							local matches =
+								(released.UserInputType == Enum.UserInputType.Keyboard and released.KeyCode.Name == newKey)
+								or (newKey == "MouseLeft" and released.UserInputType == Enum.UserInputType.MouseButton1)
+								or (newKey == "MouseRight" and released.UserInputType == Enum.UserInputType.MouseButton2)
+
+							if not matches then
+								return
+							end
+
+							kb:Set(newKey)
+							disconnectPicker()
+						end)
+					end)
+				end)
+
+				local inputConnection = af.InputBegan:Connect(function(input)
+					if picking or not canUse() or af:GetFocusedTextBox() then
+						return
+					end
+
+					local matched =
+						(input.UserInputType == Enum.UserInputType.Keyboard and key ~= "" and input.KeyCode.Name == key)
+						or (input.UserInputType == Enum.UserInputType.MouseButton1 and key == "MouseLeft")
+						or (input.UserInputType == Enum.UserInputType.MouseButton2 and key == "MouseRight")
+
+					if matched then
+						aa.SafeCallback(callback, key)
+					end
+				end)
+
+				local sizeConnection = pill.Frame.Frame.TextLabel:GetPropertyChangedSignal("TextBounds"):Connect(updateSize)
+				updateSize()
+
+				function kb.Destroy(self)
+					disconnectPicker()
+					clickConnection:Disconnect()
+					inputConnection:Disconnect()
+					sizeConnection:Disconnect()
+					if pill then
+						pill:Destroy()
+					end
+				end
+
+				return kb
+			end
+
+			local keybindConfig = type(aj.Keybind) == "table" and aj.Keybind or {}
+			local aiElement = {
 				__type = "Toggle",
-				Title = ah.Title or "Toggle",
-				Desc = ah.Desc or nil,
-				Locked = ah.Locked or false,
-				LockedTitle = ah.LockedTitle,
-				Value = ah.Value,
-				Icon = ah.Icon or nil,
-				IconSize = ah.IconSize or 23,
-				Type = ah.Type or "Toggle",
-				Callback = ah.Callback or function() end,
+				Title = aj.Title or "Toggle",
+				Desc = aj.Desc or nil,
+				Locked = aj.Locked or false,
+				LockedTitle = aj.LockedTitle,
+				Value = aj.Value,
+				Icon = aj.Icon or nil,
+				IconSize = aj.IconSize or 23,
+				Type = aj.Type or "Toggle",
+				Callback = aj.Callback or function() end,
+				Keybind = {
+					Key = NormalizeKeyCode(keybindConfig.Key),
+				},
 				UIElements = {},
 			}
-			ai.ToggleFrame = a.load("C")({
-				Title = ai.Title,
-				Desc = ai.Desc,
 
-				Window = ah.Window,
-				Parent = ah.Parent,
+			aiElement.ToggleFrame = a.load("C")({
+				Title = aiElement.Title,
+				Desc = aiElement.Desc,
+
+				Window = aj.Window,
+				Parent = aj.Parent,
 				TextOffset = 52,
 				Hover = false,
-				Tab = ah.Tab,
-				Index = ah.Index,
-				ElementTable = ai,
-				ParentConfig = ah,
-				Tags = ah.Tags,
+				Tab = aj.Tab,
+				Index = aj.Index,
+				ElementTable = aiElement,
+				ParentConfig = aj,
+				Tags = aj.Tags,
 			})
 
-			local aj = true
+			local unlocked = true
 
-			if ai.Value == nil then
-				ai.Value = false
+			if aiElement.Value == nil then
+				aiElement.Value = false
 			end
 
-			function ai.Lock(ak)
-				ai.Locked = true
-				aj = false
-				return ai.ToggleFrame:Lock(ai.LockedTitle)
+			function aiElement.Lock(ak)
+				aiElement.Locked = true
+				unlocked = false
+				return aiElement.ToggleFrame:Lock(aiElement.LockedTitle)
 			end
-			function ai.Unlock(ak)
-				ai.Locked = false
-				aj = true
-				return ai.ToggleFrame:Unlock()
-			end
-
-			if ai.Locked then
-				ai:Lock()
+			function aiElement.Unlock(ak)
+				aiElement.Locked = false
+				unlocked = true
+				return aiElement.ToggleFrame:Unlock()
 			end
 
-			local ak = ai.Value
+			if aiElement.Locked then
+				aiElement:Lock()
+			end
 
+			local ak = aiElement.Value
 			local al, am
-			if ai.Type == "Toggle" then
+			if aiElement.Type == "Toggle" then
 				al, am =
-					ad(ak, ai.Icon, ai.IconSize, ai.ToggleFrame.UIElements.Main, ai.Callback, ah.Window.NewElements, ah)
-			elseif ai.Type == "Checkbox" then
-				al, am = ae(ak, ai.Icon, ai.IconSize, ai.ToggleFrame.UIElements.Main, ai.Callback, ah)
+					ad(ak, aiElement.Icon, aiElement.IconSize, aiElement.ToggleFrame.UIElements.Main, aiElement.Callback, aj.Window.NewElements, aj)
+			elseif aiElement.Type == "Checkbox" then
+				al, am = ae(ak, aiElement.Icon, aiElement.IconSize, aiElement.ToggleFrame.UIElements.Main, aiElement.Callback, aj)
 			else
-				error("Unknown Toggle Type: " .. tostring(ai.Type))
+				error("Unknown Toggle Type: " .. tostring(aiElement.Type))
 			end
 
-			al.AnchorPoint = Vector2.new(1, ah.Window.NewElements and 0 or 0.5)
-			al.Position = UDim2.new(1, 0, ah.Window.NewElements and 0 or 0.5, 0)
+			local originalAnchorY = aj.Window.NewElements and 0 or 0.5
+			local originalOffsetY = 0
+			local function updateKeybindLayout(width)
+				local titleFrame = aiElement.ToggleFrame.UIElements.Container.TitleFrame
+				titleFrame.Size = UDim2.new(1, -(52 + width + 8), titleFrame.Size.Y.Scale, titleFrame.Size.Y.Offset)
+				al.Position = UDim2.new(1, -(width + 8), originalAnchorY, originalOffsetY)
+			end
 
-			function ai.Set(an, ao, ap, aq)
-				if aj then
+			al.AnchorPoint = Vector2.new(1, originalAnchorY)
+			al.Position = UDim2.new(1, 0, originalAnchorY, originalOffsetY)
+
+			function aiElement.Set(an, ao, ap, aq)
+				if unlocked then
 					am:Set(ao, ap, aq or false)
 					ak = ao
-					ai.Value = ao
+					aiElement.Value = ao
 				end
 			end
 
-			ai:Set(ak, false, ah.Window.NewElements)
+			aiElement:Set(ak, false, aj.Window.NewElements)
 
-			local an = ah.WindUI.GenerateGUID()
+			aiElement.KeybindObject = CreateKeybind(
+				aiElement.ToggleFrame.UIElements.Main,
+				aiElement.Keybind.Key,
+				function()
+					return unlocked
+				end,
+				function()
+					if unlocked then
+						aiElement:Set(not aiElement.Value, nil, aj.Window.NewElements)
+					end
+				end,
+				updateKeybindLayout
+			)
+			aiElement.UIElements.Keybind = aiElement.KeybindObject.UIElement
 
-			if ah.Window.NewElements and am.Animate then
-				if ai.Type == "Toggle" then
+			function aiElement.SetKeybind(an, value)
+				aiElement.Keybind.Key = NormalizeKeyCode(value)
+				aiElement.KeybindObject:Set(aiElement.Keybind.Key)
+				return aiElement
+			end
+			function aiElement.GetKeybind(an)
+				return aiElement.Keybind.Key
+			end
+			aiElement.DestroyKeybind = function()
+				if aiElement.KeybindObject then
+					aiElement.KeybindObject:Destroy()
+					aiElement.KeybindObject = nil
+				end
+			end
+
+			local an = aj.WindUI.GenerateGUID()
+
+			if aj.Window.NewElements and am.Animate then
+				if aiElement.Type == "Toggle" then
 					aa.AddSignal(al.ToggleFrame.Hitbox.InputBegan, function(ao)
 						if
-							not ah.Window.IsToggleDragging
+							not aj.Window.IsToggleDragging
 							and (
 								ao.UserInputType == Enum.UserInputType.MouseButton1
 								or ao.UserInputType == Enum.UserInputType.Touch
 							)
 						then
-							if ah.WindUI.CurrentInput and ah.WindUI.CurrentInput ~= an then
+							if aj.WindUI.CurrentInput and aj.WindUI.CurrentInput ~= an then
 								return
 							end
 
-							ah.WindUI.CurrentInput = an
-							am:Animate(ao, ai)
+							aj.WindUI.CurrentInput = an
+							am:Animate(ao, aiElement)
 						end
 					end)
 				end
 			else
-				if ai.Type == "Toggle" then
+				if aiElement.Type == "Toggle" then
 					aa.AddSignal(al.ToggleFrame.Hitbox.MouseButton1Click, function()
-						ai:Set(not ai.Value, nil, ah.Window.NewElements)
+						aiElement:Set(not aiElement.Value, nil, aj.Window.NewElements)
 					end)
-				elseif ai.Type == "Checkbox" then
+				elseif aiElement.Type == "Checkbox" then
 					aa.AddSignal(al.MouseButton1Click, function()
-						ai:Set(not ai.Value, nil, ah.Window.NewElements)
+						aiElement:Set(not aiElement.Value, nil, aj.Window.NewElements)
 					end)
 				end
 			end
 
-			return ai.__type, ai
+			return aiElement.__type, aiElement
 		end
 
-		return af
+		return ah
 	end
+
 	function a.I()
 		local aa = (cloneref or clonereference or function(aa)
 			return aa
@@ -11217,6 +11629,9 @@ au, av = ar:New(at)
 								aw:Highlight()
 							end
 							function av.Destroy(ax)
+								if av.DestroyKeybind then
+									av:DestroyKeybind()
+								end
 								aw:Destroy()
 
 								table.remove(ak.AllElements, at.GlobalIndex)
