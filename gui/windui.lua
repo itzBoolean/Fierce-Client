@@ -7390,6 +7390,8 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 
 			local keybindConfig = type(aj.Keybind) == "table" and aj.Keybind or {}
 			local subModuleConfig = type(aj.SubModule) == "table" and aj.SubModule or nil
+			local subModuleElementsConfig = subModuleConfig and subModuleConfig.Elements
+			local hasSubModuleElements = type(subModuleElementsConfig) == "table" and #subModuleElementsConfig > 0
 			local aiElement = {
 				__type = "Toggle",
 				Title = aj.Title or "Toggle",
@@ -7455,7 +7457,9 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 				error("Unknown Toggle Type: " .. tostring(aiElement.Type))
 			end
 
-			local originalAnchorY = aj.Window.NewElements and 0 or 0.5
+			-- Keep a Toggle with a submodule anchored at the top. The submodule
+			-- grows underneath it instead of vertically recentering the Toggle/keybind row.
+			local originalAnchorY = hasSubModuleElements and 0 or (aj.Window.NewElements and 0 or 0.5)
 			local originalOffsetY = 0
 			local function updateKeybindLayout(width)
 				local titleFrame = aiElement.ToggleFrame.UIElements.Container.TitleFrame
@@ -7491,6 +7495,10 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 					updateKeybindLayout
 				)
 				aiElement.UIElements.Keybind = aiElement.KeybindObject.UIElement
+				if hasSubModuleElements then
+					aiElement.KeybindObject.UIElement.AnchorPoint = Vector2.new(1, 0)
+					aiElement.KeybindObject.UIElement.Position = UDim2.new(1, 0, 0, 0)
+				end
 			end
 
 			function aiElement.SetKeybind(an, value)
@@ -7544,10 +7552,11 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 				end
 			end
 
-			local subModuleElements = subModuleConfig and subModuleConfig.Elements
-			local hasSubModuleElements = type(subModuleElements) == "table" and #subModuleElements > 0
+			local subModuleElements = subModuleElementsConfig
 			if hasSubModuleElements and aiElement.Type == "Toggle" and not aj.SubModuleContext then
 				aiElement.ToggleFrame.UIElements.Container.UIListLayout.VerticalAlignment = "Top"
+				aiElement.ToggleFrame.UIElements.Container.AnchorPoint = Vector2.new(0, 0)
+				aiElement.ToggleFrame.UIElements.Container.Position = UDim2.new(0, 0, 0, 0)
 
 				local subModule = {
 					__type = "SubModule",
@@ -7599,6 +7608,8 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 
 				local subContent = subFrame.Content
 				subContent.Parent = subFrame
+				subContent.Active = true
+				subContent.ZIndex = 16
 				subModule.UIElements = {
 					Main = subFrame,
 					Content = subContent,
@@ -7770,13 +7781,26 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 		local ai = false
 
 		function ah.New(aj, ak)
+			-- Native WindUI sliders use Value = { Min, Max, Default }. For
+			-- submodules, also accept flat Min/Max/Default fields.
+			local sliderValue = type(ak.Value) == "table" and ak.Value or {}
+			if sliderValue.Min == nil and ak.Min ~= nil then
+				sliderValue.Min = ak.Min
+			end
+			if sliderValue.Max == nil and ak.Max ~= nil then
+				sliderValue.Max = ak.Max
+			end
+			if sliderValue.Default == nil and ak.Default ~= nil then
+				sliderValue.Default = ak.Default
+			end
+
 			local al = {
 				__type = "Slider",
 				Title = ak.Title or nil,
 				Desc = ak.Desc or nil,
 				Locked = ak.Locked or nil,
 				LockedTitle = ak.LockedTitle,
-				Value = ak.Value or {},
+				Value = sliderValue,
 				Icons = ak.Icons or nil,
 				IsTooltip = ak.IsTooltip or false,
 				IsTextbox = ak.IsTextbox,
@@ -7805,10 +7829,18 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 			local am
 			local an
 			local ao
-			local ap = al.Value.Default or al.Value.Min or 0
+			local sliderMin = tonumber(al.Value.Min) or 0
+			local sliderMax = tonumber(al.Value.Max) or 100
+			if sliderMax == sliderMin then
+				sliderMax = sliderMin + 1
+			end
+			al.Value.Min = sliderMin
+			al.Value.Max = sliderMax
+			local ap = tonumber(al.Value.Default) or sliderMin
+			al.Value.Default = ap
 
 			local aq = ap
-			local ar = (ap - (al.Value.Min or 0)) / ((al.Value.Max or 100) - (al.Value.Min or 0))
+			local ar = (ap - sliderMin) / (sliderMax - sliderMin)
 
 			local as = true
 			local at = al.Step % 1 ~= 0
@@ -8010,7 +8042,7 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 								0,
 								1
 							)
-							aA = CalculateValue(al.Value.Min + d * (al.Value.Max - al.Value.Min))
+							aA = CalculateValue(sliderMin + d * (sliderMax - sliderMin))
 							aA = math.clamp(aA, al.Value.Min or 0, al.Value.Max or 100)
 
 							if aA ~= aq then
@@ -8032,7 +8064,7 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 									0,
 									1
 								)
-								aA = CalculateValue(al.Value.Min + g * (al.Value.Max - al.Value.Min))
+								aA = CalculateValue(sliderMin + g * (sliderMax - sliderMin))
 
 								if aA ~= aq then
 									ag(al.UIElements.SliderIcon.Frame, 0.05, { Size = UDim2.new(g, 0, 1, 0) }):Play()
