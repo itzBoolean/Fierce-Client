@@ -7547,6 +7547,8 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 			local subModuleElements = subModuleConfig and subModuleConfig.Elements
 			local hasSubModuleElements = type(subModuleElements) == "table" and #subModuleElements > 0
 			if hasSubModuleElements and aiElement.Type == "Toggle" and not aj.SubModuleContext then
+				aiElement.ToggleFrame.UIElements.Container.UIListLayout.VerticalAlignment = "Top"
+
 				local subModule = {
 					__type = "SubModule",
 					Elements = {},
@@ -7565,6 +7567,8 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 						ImageColor3 = Color3.new(0, 0, 0),
 						ImageTransparency = aj.Window.NewElements and 0.78 or 0.72,
 						ClipsDescendants = true,
+						Active = true,
+						ZIndex = 15,
 						Visible = false,
 						LayoutOrder = 99998,
 						Parent = aiElement.ToggleFrame.UIElements.Container,
@@ -7574,6 +7578,8 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = "Y",
 							BackgroundTransparency = 1,
+							Active = true,
+							ZIndex = 16,
 							Parent = nil,
 							Name = "Content",
 						}, {
@@ -7659,6 +7665,7 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 					subFrame.Size = UDim2.new(1, 0, 0, 0)
 
 					task.defer(function()
+						task.wait()
 						if token ~= animationToken or not subModule.Opened or not subFrame.Parent then
 							return
 						end
@@ -7944,6 +7951,15 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 					Visible = al.IsTextbox,
 				}),
 			})
+
+			if ak.SubModuleContext then
+				-- Nested sliders live inside an additional GUI layer. Make their input
+				-- surfaces active and above the submodule background so dragging works.
+				al.UIElements.SliderContainer.Active = true
+				al.UIElements.SliderContainer.ZIndex = 20
+				al.UIElements.SliderIcon.Active = true
+				al.UIElements.SliderIcon.ZIndex = 21
+			end
 
 			local ax
 			if al.IsTooltip then
