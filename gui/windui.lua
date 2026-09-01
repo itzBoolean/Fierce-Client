@@ -12593,7 +12593,7 @@ au, av = ar:New(at)
 							TextColor3 = "Text",
 						},
 						FontFace = Font.new(af.Font, Enum.FontWeight.SemiBold),
-						TextSize = 14,
+						TextSize = 16, -- toggle text size
 						BackgroundTransparency = 1,
 						TextTransparency = 0.7,
 
