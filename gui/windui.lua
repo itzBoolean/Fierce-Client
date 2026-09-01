@@ -7268,7 +7268,7 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 
 				local function updateSize()
 					local width = 24 + pill.Frame.Frame.TextLabel.TextBounds.X
-					pill.Size = UDim2.new(0, width, 0, 42)
+					pill.Size = UDim2.new(0, width, 0, 26)
 					if onSizeChanged then
 						onSizeChanged(width)
 					end
