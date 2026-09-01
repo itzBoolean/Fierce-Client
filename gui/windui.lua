@@ -7639,8 +7639,12 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 				end
 
 				local function getSubHeight()
-					local contentHeight = subContent.UIListLayout.AbsoluteContentSize.Y
-					return math.max(contentHeight, 0)
+					local layout = subContent:FindFirstChildOfClass("UIListLayout")
+					if layout then
+						return math.max(layout.AbsoluteContentSize.Y, 0)
+					end
+
+					return math.max(subContent.AbsoluteSize.Y, 0)
 				end
 
 				local animationToken = 0
@@ -7653,8 +7657,22 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 					subModule.Opened = true
 					subFrame.Visible = true
 					subFrame.Size = UDim2.new(1, 0, 0, 0)
-					local target = getSubHeight()
-					ad(subFrame, 0.28, { Size = UDim2.new(1, 0, 0, target) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
+
+					task.defer(function()
+						if token ~= animationToken or not subModule.Opened or not subFrame.Parent then
+							return
+						end
+
+						local target = getSubHeight()
+						ad(
+							subFrame,
+							0.28,
+							{ Size = UDim2.new(1, 0, 0, target) },
+							Enum.EasingStyle.Quint,
+							Enum.EasingDirection.Out
+						):Play()
+					end)
+
 					return aiElement
 				end
 
@@ -7706,11 +7724,20 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 					end
 				end)
 
-				aa.AddSignal(subContent.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-					if subModule.Opened then
-						ad(subFrame, 0.18, { Size = UDim2.new(1, 0, 0, getSubHeight()) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
-					end
-				end)
+				local subLayout = subContent:FindFirstChildOfClass("UIListLayout")
+				if subLayout then
+					aa.AddSignal(subLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+						if subModule.Opened and subFrame.Parent then
+							ad(
+								subFrame,
+								0.18,
+								{ Size = UDim2.new(1, 0, 0, getSubHeight()) },
+								Enum.EasingStyle.Quint,
+								Enum.EasingDirection.Out
+								):Play()
+						end
+					end)
+				end
 			end
 
 			return aiElement.__type, aiElement
