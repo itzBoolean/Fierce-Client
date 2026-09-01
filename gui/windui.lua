@@ -7556,7 +7556,7 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 				}
 
 				local subPadding = math.max(8, math.floor(aj.Window.UIPadding * 0.65))
-				local subFrame = ab.NewRoundFrame(
+				local subFrame = aa.NewRoundFrame(
 					math.max(6, aj.Window.UICorner - 4),
 					"Squircle",
 					{
