@@ -7664,7 +7664,7 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 						end
 
 						local target = getSubHeight()
-						ad(
+						ac(
 							subFrame,
 							0.28,
 							{ Size = UDim2.new(1, 0, 0, target) },
@@ -7683,7 +7683,7 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 					animationToken += 1
 					local token = animationToken
 					subModule.Opened = false
-					ad(subFrame, 0.22, { Size = UDim2.new(1, 0, 0, 0) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
+					ac(subFrame, 0.22, { Size = UDim2.new(1, 0, 0, 0) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
 					task.delay(0.23, function()
 						if token == animationToken and not subModule.Opened then
 							subFrame.Visible = false
@@ -7728,7 +7728,7 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 				if subLayout then
 					aa.AddSignal(subLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
 						if subModule.Opened and subFrame.Parent then
-							ad(
+							ac(
 								subFrame,
 								0.18,
 								{ Size = UDim2.new(1, 0, 0, getSubHeight()) },
