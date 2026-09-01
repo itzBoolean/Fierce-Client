@@ -15428,7 +15428,8 @@ function aa.CreateWindow(az, aA)
 				loadKeysystem()
 			end
 		end
-s		repeat
+
+		repeat
 			task.wait()
 		until b
 	end
