@@ -6688,23 +6688,27 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 				end
 			end
 
-			afElement.KeybindObject = CreateKeybind(
-				afElement.ButtonFrame.UIElements.Main,
-				afElement.Keybind.Key,
-				function()
-					return enabled
-				end,
-				function()
-					if enabled then
-						task.spawn(function()
-							aa.SafeCallback(afElement.Callback)
-						end)
-					end
-				end,
-				updateKeybindLayout
-			)
+			if not ag.SubModuleContext then
+				afElement.KeybindObject = CreateKeybind(
+					afElement.ButtonFrame.UIElements.Main,
+					afElement.Keybind.Key,
+					function()
+						return enabled
+					end,
+					function()
+						if enabled then
+							task.spawn(function()
+								aa.SafeCallback(afElement.Callback)
+							end)
+						end
+					end,
+					updateKeybindLayout
+				)
 
-			afElement.UIElements.Keybind = afElement.KeybindObject.UIElement
+				afElement.UIElements.Keybind = afElement.KeybindObject.UIElement
+			else
+				afElement.Keybind = nil
+			end
 
 			function afElement.Lock(ah)
 				afElement.Locked = true
@@ -6717,12 +6721,15 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 				return afElement.ButtonFrame:Unlock()
 			end
 			function afElement.SetKeybind(ah, value)
+				if not afElement.KeybindObject then
+					return afElement
+				end
 				afElement.Keybind.Key = NormalizeKeyCode(value)
 				afElement.KeybindObject:Set(afElement.Keybind.Key)
 				return afElement
 			end
 			function afElement.GetKeybind(ah)
-				return afElement.Keybind.Key
+				return afElement.Keybind and afElement.Keybind.Key or nil
 			end
 			afElement.DestroyKeybind = function()
 				if afElement.KeybindObject then
@@ -7382,6 +7389,7 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 			end
 
 			local keybindConfig = type(aj.Keybind) == "table" and aj.Keybind or {}
+			local subModuleConfig = type(aj.SubModule) == "table" and aj.SubModule or nil
 			local aiElement = {
 				__type = "Toggle",
 				Title = aj.Title or "Toggle",
@@ -7393,9 +7401,10 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 				IconSize = aj.IconSize or 23,
 				Type = aj.Type or "Toggle",
 				Callback = aj.Callback or function() end,
-				Keybind = {
+				Keybind = aj.SubModuleContext and nil or {
 					Key = NormalizeKeyCode(keybindConfig.Key),
 				},
+				SubModule = subModuleConfig,
 				UIElements = {},
 			}
 
@@ -7467,28 +7476,33 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 
 			aiElement:Set(ak, false, aj.Window.NewElements)
 
-			aiElement.KeybindObject = CreateKeybind(
-				aiElement.ToggleFrame.UIElements.Main,
-				aiElement.Keybind.Key,
-				function()
-					return unlocked
-				end,
-				function()
-					if unlocked then
-						aiElement:Set(not aiElement.Value, nil, aj.Window.NewElements)
-					end
-				end,
-				updateKeybindLayout
-			)
-			aiElement.UIElements.Keybind = aiElement.KeybindObject.UIElement
+			if not aj.SubModuleContext then
+				aiElement.KeybindObject = CreateKeybind(
+					aiElement.ToggleFrame.UIElements.Main,
+					aiElement.Keybind.Key,
+					function()
+						return unlocked
+					end,
+					function()
+						if unlocked then
+							aiElement:Set(not aiElement.Value, nil, aj.Window.NewElements)
+						end
+					end,
+					updateKeybindLayout
+				)
+				aiElement.UIElements.Keybind = aiElement.KeybindObject.UIElement
+			end
 
 			function aiElement.SetKeybind(an, value)
+				if not aiElement.KeybindObject then
+					return aiElement
+				end
 				aiElement.Keybind.Key = NormalizeKeyCode(value)
 				aiElement.KeybindObject:Set(aiElement.Keybind.Key)
 				return aiElement
 			end
 			function aiElement.GetKeybind(an)
-				return aiElement.Keybind.Key
+				return aiElement.Keybind and aiElement.Keybind.Key or nil
 			end
 			aiElement.DestroyKeybind = function()
 				if aiElement.KeybindObject then
@@ -7528,6 +7542,175 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 						aiElement:Set(not aiElement.Value, nil, aj.Window.NewElements)
 					end)
 				end
+			end
+
+			local subModuleElements = subModuleConfig and subModuleConfig.Elements
+			local hasSubModuleElements = type(subModuleElements) == "table" and #subModuleElements > 0
+			if hasSubModuleElements and aiElement.Type == "Toggle" and not aj.SubModuleContext then
+				local subModule = {
+					__type = "SubModule",
+					Elements = {},
+					ParentElement = aiElement,
+					ParentConfig = aj,
+					Opened = false,
+				}
+
+				local subPadding = math.max(8, math.floor(aj.Window.UIPadding * 0.65))
+				local subFrame = ab.NewRoundFrame(
+					math.max(6, aj.Window.UICorner - 4),
+					"Squircle",
+					{
+						Size = UDim2.new(1, 0, 0, 0),
+						BackgroundTransparency = 1,
+						ImageColor3 = Color3.new(0, 0, 0),
+						ImageTransparency = aj.Window.NewElements and 0.78 or 0.72,
+						ClipsDescendants = true,
+						Visible = false,
+						LayoutOrder = 99998,
+						Parent = aiElement.ToggleFrame.UIElements.Container,
+					},
+					{
+						ab("Frame", {
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = "Y",
+							BackgroundTransparency = 1,
+							Parent = nil,
+							Name = "Content",
+						}, {
+							ab("UIPadding", {
+								PaddingTop = UDim.new(0, subPadding),
+								PaddingBottom = UDim.new(0, subPadding),
+								PaddingLeft = UDim.new(0, subPadding),
+								PaddingRight = UDim.new(0, subPadding),
+							}),
+							ab("UIListLayout", {
+								FillDirection = "Vertical",
+								Padding = UDim.new(0, aj.Window.NewElements and 3 or 5),
+							}),
+						}),
+					}
+				)
+
+				local subContent = subFrame.Content
+				subContent.Parent = subFrame
+				subModule.UIElements = {
+					Main = subFrame,
+					Content = subContent,
+				}
+
+				aiElement.SubModule = subModule
+				aiElement.UIElements.SubModule = subFrame
+
+				local subElementsModule = aj.ElementsModule
+				if subElementsModule and subElementsModule.Load then
+					subElementsModule.Load(
+						subModule,
+						subContent,
+						subElementsModule.Elements,
+						aj.Window,
+						aj.WindUI,
+						nil,
+						subElementsModule,
+						aj.UIScale,
+						aj.Tab
+					)
+
+					for index, childConfig in ipairs(subModuleElements or {}) do
+						if type(childConfig) == "table" then
+							local childType = childConfig.Type
+							if childType == "ColorPicker" then
+								childType = "Colorpicker"
+							end
+							if childType and childType ~= "Keybind" and childType ~= "SubModule" then
+								local child = {}
+								for key, value in pairs(childConfig) do
+									if key ~= "Type" and key ~= "Keybind" then
+										child[key] = value
+									end
+								end
+								child.SubModuleContext = true
+								local addChild = subModule[childType]
+								if type(addChild) == "function" then
+									addChild(subModule, child)
+								end
+							end
+						end
+					end
+				end
+
+				local function getSubHeight()
+					local contentHeight = subContent.UIListLayout.AbsoluteContentSize.Y
+					return math.max(contentHeight, 0)
+				end
+
+				local animationToken = 0
+				function aiElement.OpenSubModule(self)
+					if subModule.Opened then
+						return aiElement
+					end
+					animationToken += 1
+					local token = animationToken
+					subModule.Opened = true
+					subFrame.Visible = true
+					subFrame.Size = UDim2.new(1, 0, 0, 0)
+					local target = getSubHeight()
+					ad(subFrame, 0.28, { Size = UDim2.new(1, 0, 0, target) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
+					return aiElement
+				end
+
+				function aiElement.CloseSubModule(self)
+					if not subModule.Opened then
+						return aiElement
+					end
+					animationToken += 1
+					local token = animationToken
+					subModule.Opened = false
+					ad(subFrame, 0.22, { Size = UDim2.new(1, 0, 0, 0) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
+					task.delay(0.23, function()
+						if token == animationToken and not subModule.Opened then
+							subFrame.Visible = false
+						end
+					end)
+					return aiElement
+				end
+
+				function aiElement.ToggleSubModule(self)
+					if subModule.Opened then
+						return aiElement:CloseSubModule()
+					else
+						return aiElement:OpenSubModule()
+					end
+				end
+
+				aiElement.DestroySubModule = function()
+					animationToken += 1
+					for i = #subModule.Elements, 1, -1 do
+						local child = subModule.Elements[i]
+						if child and child.Destroy then
+							pcall(function()
+								child:Destroy()
+							end)
+						end
+						subModule.Elements[i] = nil
+					end
+					if subFrame then
+						subFrame:Destroy()
+					end
+					aiElement.SubModule = nil
+					aiElement.UIElements.SubModule = nil
+				end
+
+				aa.AddSignal(al.ToggleFrame.Hitbox.InputBegan, function(input)
+					if unlocked and input.UserInputType == Enum.UserInputType.MouseButton2 then
+						aiElement:ToggleSubModule()
+					end
+				end)
+
+				aa.AddSignal(subContent.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+					if subModule.Opened then
+						ad(subFrame, 0.18, { Size = UDim2.new(1, 0, 0, getSubHeight()) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out):Play()
+					end
+				end)
 			end
 
 			return aiElement.__type, aiElement
@@ -11560,6 +11743,7 @@ al.RenderStepped
 						at.Tab = ap or aa
 						at.ParentType = aa.__type
 						at.ParentTable = aa
+						at.SubModuleContext = aa.__type == "SubModule" or aa.SubModuleContext == true
 						at.Index = #aa.Elements + 1
 						at.GlobalIndex = #ak.AllElements + 1
 						at.Parent = af
@@ -11629,22 +11813,36 @@ au, av = ar:New(at)
 								aw:Highlight()
 							end
 							function av.Destroy(ax)
+								if av.DestroySubModule then
+									av:DestroySubModule()
+								end
 								if av.DestroyKeybind then
 									av:DestroyKeybind()
 								end
 								aw:Destroy()
 
-								table.remove(ak.AllElements, at.GlobalIndex)
-								table.remove(aa.Elements, at.Index)
-								table.remove(ap.Elements, at.Index)
-								aa:UpdateAllElementShapes(aa)
+								if at.SubModuleContext then
+									table.remove(aa.Elements, at.Index)
+									if aa.UpdateAllElementShapes then
+										aa:UpdateAllElementShapes(aa)
+									end
+								else
+									table.remove(ak.AllElements, at.GlobalIndex)
+									table.remove(aa.Elements, at.Index)
+									if ap then
+										table.remove(ap.Elements, at.Index)
+									end
+									aa:UpdateAllElementShapes(aa)
+								end
 							end
 						end
 
-						ak.AllElements[at.Index] = av
+						if not at.SubModuleContext then
+							ak.AllElements[at.GlobalIndex] = av
+						end
 						aa.Elements[at.Index] = av
-						if ap then
-							ap.Elements[at.Index] = av
+						if ap and not at.SubModuleContext then
+							ap.Elements[#ap.Elements + 1] = av
 						end
 
 						if ak.NewElements then
@@ -15230,8 +15428,7 @@ function aa.CreateWindow(az, aA)
 				loadKeysystem()
 			end
 		end
-
-		repeat
+s		repeat
 			task.wait()
 		until b
 	end
