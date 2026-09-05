@@ -6747,10 +6747,8 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 					return
 				end
 
-				if
-					input.UserInputType == Enum.UserInputType.MouseButton1
-					or input.UserInputType == Enum.UserInputType.Touch
-				then
+				if input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch then
 					task.spawn(function()
 						aa.SafeCallback(afElement.Callback)
 					end)
@@ -7655,23 +7653,20 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 								child.SubModuleContext = true
 								local addChild = subModule[childType]
 								if type(addChild) == "function" then
-									addChild(subModule, child)
+									local childElement = addChild(subModule, child)
 
-										-- The animated submodule surface has a higher ZIndex than normal
-										-- elements. Raise the complete child GUI tree so its controls
-										-- receive mouse/touch input reliably.
-										if child.ElementFrame then
-											child.ElementFrame.Active = true
-											child.ElementFrame.ZIndex = math.max(child.ElementFrame.ZIndex, 20)
-
-											for _, descendant in ipairs(child.ElementFrame:GetDescendants()) do
+										-- Keep nested controls above the animated submodule background.
+										if childElement and childElement.ElementFrame then
+											childElement.ElementFrame.Active = true
+											childElement.ElementFrame.ZIndex = math.max(childElement.ElementFrame.ZIndex, 20)
+											for _, descendant in ipairs(childElement.ElementFrame:GetDescendants()) do
 												if descendant:IsA("GuiObject") then
 													descendant.ZIndex = math.max(descendant.ZIndex, 20)
 												end
 											end
 										end
-										end
 									end
+								end
 							end
 						end
 					end
@@ -12071,7 +12066,7 @@ au, av = ar:New(at)
 					},
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.new(0.5, 0, 0.5, 0),
-					ImageTransparency = 1,
+					ImageTransparency = ar.SectionTab and 0.88 or 1,
 					Name = "Outline",
 				}, {}),
 				ak.NewRoundFrame(ar.UICorner, "Squircle", {
