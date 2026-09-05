@@ -6742,8 +6742,15 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 				afElement:Lock()
 			end
 
-			aa.AddSignal(afElement.ButtonFrame.UIElements.Main.MouseButton1Click, function()
-				if enabled then
+			aa.AddSignal(afElement.ButtonFrame.UIElements.Main.InputBegan, function(input)
+				if not enabled then
+					return
+				end
+
+				if
+					input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
 					task.spawn(function()
 						aa.SafeCallback(afElement.Callback)
 					end)
@@ -7649,7 +7656,22 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 								local addChild = subModule[childType]
 								if type(addChild) == "function" then
 									addChild(subModule, child)
-								end
+
+										-- The animated submodule surface has a higher ZIndex than normal
+										-- elements. Raise the complete child GUI tree so its controls
+										-- receive mouse/touch input reliably.
+										if child.ElementFrame then
+											child.ElementFrame.Active = true
+											child.ElementFrame.ZIndex = math.max(child.ElementFrame.ZIndex, 20)
+
+											for _, descendant in ipairs(child.ElementFrame:GetDescendants()) do
+												if descendant:IsA("GuiObject") then
+													descendant.ZIndex = math.max(descendant.ZIndex, 20)
+												end
+											end
+										end
+										end
+									end
 							end
 						end
 					end
@@ -12040,7 +12062,7 @@ au, av = ar:New(at)
 				ThemeTag = {
 					ImageColor3 = "TabBackground",
 				},
-				ImageTransparency = 1,
+				ImageTransparency = ar.SectionTab and 0.84 or 1,
 			}, {
 				ak.NewRoundFrame(ar.UICorner - 1, "Glass-1.4", {
 					Size = UDim2.new(1, 1, 1, 1),
@@ -12056,9 +12078,9 @@ au, av = ar:New(at)
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = "Y",
 					ThemeTag = {
-						ImageColor3 = "Text",
+						ImageColor3 = "TabBackground",
 					},
-					ImageTransparency = 1,
+					ImageTransparency = ar.SectionTab and 0.88 or 1,
 					Name = "Frame",
 				}, {
 					al("UIListLayout", {
@@ -12593,7 +12615,7 @@ au, av = ar:New(at)
 							TextColor3 = "Text",
 						},
 						FontFace = Font.new(af.Font, Enum.FontWeight.SemiBold),
-						TextSize = 16, -- toggle text size
+						TextSize = 14,
 						BackgroundTransparency = 1,
 						TextTransparency = 0.7,
 
@@ -12632,6 +12654,7 @@ au, av = ar:New(at)
 					at.Visible = true
 				end
 				aw.Parent = au.Content
+				aw.SectionTab = true
 				return al.New(aw, ap)
 			end
 
