@@ -6743,30 +6743,20 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 			end
 
 			local buttonMain = afElement.ButtonFrame.UIElements.Main
-			local clickArea = aa.New("TextButton", {
-				Name = "ButtonClickArea",
-				Size = UDim2.new(1, 0, 1, 0),
-				Position = UDim2.new(0, 0, 0, 0),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				Text = "",
-				AutoButtonColor = false,
-				Active = true,
-				ZIndex = buttonMain.ZIndex + 1,
-				Parent = buttonMain,
-			})
+			buttonMain.Active = true
 
-			aa.AddSignal(clickArea.MouseButton1Click, function()
+			aa.AddSignal(buttonMain.InputBegan, function(input)
 				if not enabled then
 					return
 				end
 
-				task.spawn(function()
-					aa.SafeCallback(afElement.Callback)
-				end)
+				if input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch then
+					task.spawn(function()
+						aa.SafeCallback(afElement.Callback)
+					end)
+				end
 			end)
-
-			afElement.UIElements.ButtonClickArea = clickArea
 			return afElement.__type, afElement
 		end
 
