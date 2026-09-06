@@ -6742,8 +6742,13 @@ aA = ac(ah.UICorner, "Squircle-Outline", {
 				afElement:Lock()
 			end
 
-			aa.AddSignal(afElement.ButtonFrame.UIElements.Main.MouseButton1Click, function()
-				if enabled then
+			aa.AddSignal(afElement.ButtonFrame.UIElements.Main.InputBegan, function(input)
+				if not enabled then
+					return
+				end
+
+				if input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch then
 					task.spawn(function()
 						aa.SafeCallback(afElement.Callback)
 					end)
