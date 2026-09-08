@@ -739,7 +739,7 @@ run(function()
 					Type = "Dropdown",
 					Title = "Type",
 					Values = { "Regular", "Climb" },
-					Default = "Regular",
+					Value = "Regular",
 
 					Callback = function(value)
 						spiderMode = value
@@ -1215,6 +1215,7 @@ run(function()
 		},
 	})
 	Controls.Toggles.AimAssist = AimAssistExploit
+	Controls.Toggles.Triggerbot = TriggerbotExploit
 end)
 
 --TODO: Velocity
@@ -1405,7 +1406,7 @@ run(function()
 			},
 		},
 	})
-	Controls.Toggles.Triggerbot = TriggerbotExploit
+	Controls.Toggles.ESP = ESPExploit
 end)
 
 run(function()
@@ -1550,7 +1551,7 @@ run(function()
 			},
 		},
 	})
-	Controls.Toggles.ESP = ESPExploit
+	Controls.Toggles.Tracers = TracersExploit
 end)
 
 --TODO: spectate
@@ -1595,7 +1596,7 @@ run(function()
 			end
 		end,
 	})
-	Controls.Toggles.Tracers = TracersExploit
+	Controls.Toggles.Xray = XrayExploit
 end)
 
 run(function()
@@ -1626,7 +1627,7 @@ run(function()
 			end
 		end,
 	})
-	Controls.Toggles.Xray = XrayExploit
+	Controls.Toggles.Fullbright = FullbrightExploit
 end)
 
 run(function()
@@ -1664,7 +1665,7 @@ run(function()
 			},
 		},
 	})
-	Controls.Toggles.Fullbright = FullbrightExploit
+	Controls.Toggles.TimeChanger = TimeChangerExploit
 end)
 
 run(function()
@@ -1690,7 +1691,7 @@ run(function()
 			end
 		end,
 	})
-	Controls.Toggles.TimeChanger = TimeChangerExploit
+	Controls.Toggles.NoFog = NoFogExploit
 end)
 
 run(function()
@@ -1764,7 +1765,7 @@ run(function()
 			end
 		end,
 	})
-	Controls.Toggles.NoFog = NoFogExploit
+	Controls.Toggles.FPSBoost = FPSBoostExploit
 end)
 
 -- Modules for Networks TAB
