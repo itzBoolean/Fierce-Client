@@ -27,11 +27,14 @@ local WATERMARK_TEXT = "Elite Client"
 
 local TEXT_SIZE = 18
 local CUSTOM_TEXT_SIZE = 25
-local WATERMARK_SIZE = 24
+local WATERMARK_SIZE = 26
 local PADDING_X = 16
 local PADDING_Y = 6
 local TEXT_OFFSET_X = 6
 local TEXT_OFFSET_Y = 2
+local INFO_GAP = 5
+local INFO_COLOR = Color3.fromRGB(200, 200, 200)
+local HEADER_SPACING = 6
 
 local RGB_SPEED = 0.2
 local RGB_GRADIENT_STEP = 0.03
@@ -55,13 +58,14 @@ local FONT_LIST = {
 
 --// State
 local State = {
+	Enabled = true,
 	Sort = "Alphabetical",
 	FontName = "Arial",
 	ColorMode = "RGB",
 	Color = Color3.fromRGB(255, 70, 70),
 	Scale = 1,
 	Shadow = true,
-	Gradient = false,
+	Gradient = true,
 	Animations = true,
 	Watermark = false,
 	Background = false,
@@ -71,10 +75,12 @@ local State = {
 	CustomTextValue = "",
 	CustomTextFontName = "Arial",
 	CustomTextColor = Color3.fromRGB(255, 255, 255),
+	CustomTextColorMode = "Custom Color",
 }
 
 local Entries = {} -- [name] = entry
 local Ordered = {} -- entries sorted for display
+local Infos = {} -- [name] = info text shown beside the module name
 local Destroyed = false
 local HeartbeatConnection
 
@@ -94,6 +100,13 @@ local function canonicalFont(name)
 		return Enum.Font[name]
 	end)
 	return ok and name or nil
+end
+
+local function normalizeColorMode(value)
+	if type(value) ~= "string" then
+		return nil
+	end
+	return value:lower():find("custom") and "Custom Color" or "RGB"
 end
 
 local function resolveFont(name)
@@ -176,7 +189,8 @@ local function createTextPair(parent)
 	return { Label = label, Shadow = shadow }
 end
 
-local function styleTextPair(pair, text, font, textSize, shadowEnabled)
+local function styleTextPair(pair, text, font, textSize, shadowEnabled, offsetX)
+	offsetX = offsetX or TEXT_OFFSET_X
 	local bounds = measureText(text, font, textSize)
 	local size = UDim2.fromOffset(bounds.X, bounds.Y)
 
@@ -187,8 +201,8 @@ local function styleTextPair(pair, text, font, textSize, shadowEnabled)
 		textLabel.Size = size
 	end
 
-	pair.Label.Position = UDim2.fromOffset(TEXT_OFFSET_X, TEXT_OFFSET_Y)
-	pair.Shadow.Position = UDim2.fromOffset(TEXT_OFFSET_X + 1, TEXT_OFFSET_Y + 1)
+	pair.Label.Position = UDim2.fromOffset(offsetX, TEXT_OFFSET_Y)
+	pair.Shadow.Position = UDim2.fromOffset(offsetX + 1, TEXT_OFFSET_Y + 1)
 	pair.Shadow.Visible = shadowEnabled
 
 	return bounds
@@ -256,6 +270,7 @@ local function createEntry(name)
 		Background = background,
 		Accent = accent,
 		Text = createTextPair(holder),
+		Info = createTextPair(holder),
 		Width = 0,
 		Height = 0,
 		Removing = false,
@@ -300,6 +315,13 @@ local function getListColor(index, total)
 	return Color3.fromHSV(hue, sat, val)
 end
 
+local function getCustomTextColor()
+	if State.CustomTextColorMode == "RGB" then
+		return Color3.fromHSV((os.clock() * RGB_SPEED) % 1, 0.8, 1)
+	end
+	return State.CustomTextColor
+end
+
 local function applyColors()
 	local total = #Ordered
 
@@ -311,14 +333,33 @@ local function applyColors()
 	end
 
 	WatermarkPair.Label.TextColor3 = getListColor(1, math.max(total, 1))
-	CustomTextPair.Label.TextColor3 = State.CustomTextColor
+	CustomTextPair.Label.TextColor3 = getCustomTextColor()
 end
 
 local function styleEntry(entry)
-	local bounds = styleTextPair(entry.Text, entry.Name, resolveFont(State.FontName), TEXT_SIZE, State.Shadow)
+	local font = resolveFont(State.FontName)
+	local nameBounds = styleTextPair(entry.Text, entry.Name, font, TEXT_SIZE, State.Shadow)
+	local contentWidth = nameBounds.X
 
-	entry.Width = bounds.X + PADDING_X
-	entry.Height = bounds.Y + PADDING_Y
+	local info = Infos[entry.Name]
+	entry.Info.Label.Visible = info ~= nil
+	entry.Info.Shadow.Visible = info ~= nil and State.Shadow
+
+	if info then
+		local infoBounds = styleTextPair(
+			entry.Info,
+			info,
+			font,
+			TEXT_SIZE,
+			State.Shadow,
+			TEXT_OFFSET_X + nameBounds.X + INFO_GAP
+		)
+		entry.Info.Label.TextColor3 = INFO_COLOR
+		contentWidth = contentWidth + INFO_GAP + infoBounds.X
+	end
+
+	entry.Width = contentWidth + PADDING_X
+	entry.Height = nameBounds.Y + PADDING_Y
 	entry.Background.Visible = State.Background
 	entry.Background.BackgroundTransparency = State.Transparency
 	entry.Accent.Visible = State.Background
@@ -366,8 +407,9 @@ local function updateHeader()
 
 	WatermarkFrame.Visible = State.Watermark
 	if State.Watermark then
-		local bounds = styleTextPair(WatermarkPair, WATERMARK_TEXT, mainFont, WATERMARK_SIZE, State.Shadow)
-		WatermarkFrame.Size = UDim2.fromOffset(bounds.X + PADDING_X, bounds.Y + 2)
+		local watermarkFont = Font.new(mainFont.Family, Enum.FontWeight.Bold)
+		local bounds = styleTextPair(WatermarkPair, WATERMARK_TEXT, watermarkFont, WATERMARK_SIZE, State.Shadow)
+		WatermarkFrame.Size = UDim2.fromOffset(bounds.X + PADDING_X, bounds.Y + 2 + HEADER_SPACING)
 	end
 
 	local showCustom = State.CustomText and State.CustomTextValue ~= ""
@@ -380,7 +422,7 @@ local function updateHeader()
 			CUSTOM_TEXT_SIZE,
 			State.Shadow
 		)
-		CustomTextFrame.Size = UDim2.fromOffset(bounds.X + PADDING_X, bounds.Y + 2)
+		CustomTextFrame.Size = UDim2.fromOffset(bounds.X + PADDING_X, bounds.Y + 2 + HEADER_SPACING)
 	end
 end
 
@@ -403,21 +445,52 @@ local function refresh()
 end
 
 HeartbeatConnection = RunService.Heartbeat:Connect(function()
-	if State.ColorMode == "RGB" then
+	if State.Enabled and (State.ColorMode == "RGB" or State.CustomTextColorMode == "RGB") then
 		applyColors()
 	end
 end)
 
 --// Module list control
-local function addModule(name)
+local function setModuleInfo(name, info)
 	if Destroyed or type(name) ~= "string" or name == "" then
 		return
+	end
+
+	if info ~= nil then
+		info = tostring(info)
+	end
+	if info == "" then
+		info = nil
+	end
+	if Infos[name] == info then
+		return
+	end
+	Infos[name] = info
+
+	local entry = Entries[name]
+	if entry and not entry.Removing then
+		styleEntry(entry)
+		rebuildOrder()
+		applyEntrySize(entry, false)
+		applyColors()
+	end
+end
+
+local function addModule(name, info)
+	if Destroyed or type(name) ~= "string" or name == "" then
+		return
+	end
+
+	if info ~= nil then
+		setModuleInfo(name, info)
 	end
 
 	local entry = Entries[name]
 	if entry then
 		if entry.Removing then
 			entry.Removing = false
+			styleEntry(entry)
+			rebuildOrder()
 			applyEntrySize(entry, true)
 		end
 		return
@@ -442,6 +515,20 @@ local function delModule(name)
 end
 
 --// Setting handlers (used by the public API)
+local function setEnabled(value)
+	State.Enabled = not not value
+	ScreenGui.Enabled = State.Enabled
+end
+
+local function setCustomTextColorMode(value)
+	local mode = normalizeColorMode(value)
+	if not mode then
+		return
+	end
+	State.CustomTextColorMode = mode
+	refresh()
+end
+
 local function setSort(value)
 	if type(value) ~= "string" then
 		return
@@ -461,10 +548,11 @@ local function setFont(value)
 end
 
 local function setColorMode(value)
-	if type(value) ~= "string" then
+	local mode = normalizeColorMode(value)
+	if not mode then
 		return
 	end
-	State.ColorMode = value:lower():find("custom") and "Custom Color" or "RGB"
+	State.ColorMode = mode
 	refresh()
 end
 
@@ -561,8 +649,16 @@ TextGUI.Fonts = FONT_LIST
 TextGUI.SortModes = SORT_MODES
 TextGUI.ColorModes = COLOR_MODES
 
-function TextGUI.addModule(name)
-	addModule(name)
+function TextGUI.toggleTextGUI(val)
+	setEnabled(val)
+end
+
+function TextGUI.addModule(name, info)
+	addModule(name, info)
+end
+
+function TextGUI.setModuleInfo(name, text)
+	setModuleInfo(name, text)
 end
 
 function TextGUI.delModule(name)
@@ -631,6 +727,10 @@ end
 
 function TextGUI.setCustomTextColor(color)
 	setCustomTextColor(color)
+end
+
+function TextGUI.setCustomTextColorModeType(mode)
+	setCustomTextColorMode(mode)
 end
 
 function TextGUI.destroy()
